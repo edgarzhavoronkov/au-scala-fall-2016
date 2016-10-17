@@ -23,7 +23,6 @@ trait IntTraversable {
 
 class IntArrayBuffer(initialLength : Int) extends IntTraversable {
   var array = new Array[Int](initialLength)
-  var size0 = array.length
 
   def this() = this(16)
 
@@ -34,30 +33,32 @@ class IntArrayBuffer(initialLength : Int) extends IntTraversable {
   def clear(): Unit = reduceToSize(0)
 
   def +=(element: Int): IntArrayBuffer = {
-    ensureSize(array.length + 1)
-    array(array.length) = element
-    size0 += 1
+    val newarray = new Array[Int](array.length + 1)
+    Array.copy(array, 0, newarray, 0, array.length)
+    newarray(array.length) = element
+    array = newarray
     this
   }
 
   def ++=(elements: IntTraversable): IntArrayBuffer = {
-    val n = elements.size
-    ensureSize(array.length + n)
-    ???
-    size0 += n
+    for (x <- elements) {
+      this += x
+    }
     this
   }
 
   def remove(index: Int): Int = {
     val result = apply(index)
-    ???
-    size0 -= 1
+    val newarray = new Array[Int](array.length - 1)
+    Array.copy(array, 0, newarray, 0, index)
+    Array.copy(array, index + 1, newarray, index, array.length - 1 - index)
+    array = newarray
     result
   }
 
-  override def isEmpty: Boolean = size0 != 0
+  override def isEmpty: Boolean = array.isEmpty
 
-  override def size: Int = size0
+  override def size: Int = array.length
 
   override def contains(element: Int): Boolean = array.contains(element)
 
@@ -66,7 +67,7 @@ class IntArrayBuffer(initialLength : Int) extends IntTraversable {
   override def tail: IntArrayBuffer = {
     val result = new IntArrayBuffer(0)
     var from = 1
-    while (from < size0) {
+    while (from < array.length) {
       result += array(from)
       from += 1
     }
@@ -81,25 +82,20 @@ class IntArrayBuffer(initialLength : Int) extends IntTraversable {
   }
 
   protected def ensureSize(size: Int): Unit = {
-    if (size > size0) {
-      var newsize = size0 * 2
+    if (size > array.length) {
+      var newsize = array.length * 2
       while (size > newsize) {
         newsize *= 2
       }
       val newarray = new Array[Int](newsize)
-      Array.copy(array, 0, newarray, 0, size0)
+      Array.copy(array, 0, newarray, 0, array.length)
       array = newarray
-      size0 = newarray.length
     }
   }
 
   protected def reduceToSize(newSize: Int): Unit = {
-    require(newSize <= size0)
-    while (size0 > newSize) {
-      size0 -= 1
-      array(size0) = null
-    }
-    ???
+    require(newSize <= array.length)
+    array = array.take(newSize)
   }
 
   override def filter(predicate: (Int) => Boolean): IntTraversable = {
@@ -138,7 +134,38 @@ class IntArrayBuffer(initialLength : Int) extends IntTraversable {
 object IntArrayBuffer {
   def empty: IntArrayBuffer = new IntArrayBuffer(0)
 
-  def apply(elements: Int*): IntArrayBuffer = ???
-
-  def unapplySeq(buffer: IntArrayBuffer): Option[IntArrayBuffer] = ???
+  def apply(elements: Int*): IntArrayBuffer = {
+    val result = new IntArrayBuffer(0)
+    for (elem <- elements) {
+      result += elem
+    }
+    result
+  }
+//  scalac bug?
+  def unapplySeq(buffer: IntArrayBuffer): Option[IntArrayBuffer] = {
+    if (buffer.isEmpty) {
+      None
+    } else {
+      Some(buffer)
+    }
+  }
 }
+
+val i = IntArrayBuffer.empty
+val j = IntArrayBuffer.empty
+
+val k = IntArrayBuffer(6, 7, 8)
+
+
+i += 1 += 2 += 3
+
+j += 4 += 5 += 6
+
+i ++= j
+
+for (x <- k) {
+  print(x.asInstanceOf[Int] + "\n")
+}
+
+//  scalac bug?
+k match {case IntArrayBuffer(a) => print(a)}
