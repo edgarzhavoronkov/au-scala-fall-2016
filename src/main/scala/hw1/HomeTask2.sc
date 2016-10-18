@@ -60,6 +60,9 @@ class IntArrayBuffer(initialLength : Int) extends IntTraversable {
 
   override def size: Int = array.length
 
+  //  due to scalac bug this def need to be defined for pattern-matching
+  def length: Int = array.length
+
   override def contains(element: Int): Boolean = array.contains(element)
 
   override def head: Int = array.head
@@ -141,7 +144,7 @@ object IntArrayBuffer {
     }
     result
   }
-//  scalac bug?
+
   def unapplySeq(buffer: IntArrayBuffer): Option[IntArrayBuffer] = {
     if (buffer.isEmpty) {
       None
@@ -167,5 +170,4 @@ for (x <- k) {
   print(x.asInstanceOf[Int] + "\n")
 }
 
-//  scalac bug?
-k match {case IntArrayBuffer(a) => print(a)}
+k match {case IntArrayBuffer(head, tail@_*) => print(head)}
