@@ -35,15 +35,19 @@ object jpy extends Currency {
   override def getCode: String = "jpy"
 }
 
-class Conversion(from: Currency, to: Currency, date : Date = null) {
-  def convert : BigDecimal = {
+case class ConversionHolder(from: Currency, to: Currency, date : Date, value: BigDecimal)
+
+case class Conversion(from: Currency, to: Currency, date: Date = null) {
+  def convert : ConversionHolder = {
+    var result : BigDecimal = 0
     if (to == rub) {
-      getRateAgainstRub(from)
+      result = getRateAgainstRub(from)
     } else if (from == rub) {
-      1 / getRateAgainstRub(to)
+      result = 1 / getRateAgainstRub(to)
     } else {
-      getRateAgainstRub(from) / getRateAgainstRub(to)
+      result = getRateAgainstRub(from) / getRateAgainstRub(to)
     }
+    ConversionHolder(from, to, date, result)
   }
 
   private def getRateAgainstRub(currency: Currency) : BigDecimal = {
@@ -72,16 +76,15 @@ class Conversion(from: Currency, to: Currency, date : Date = null) {
 }
 
 implicit class CurrencyExt(from: Currency) {
-  def to(to: Currency) = new Conversion(from, to).convert
+  def to(to: Currency) = ConversionHolder(from, to, null, Conversion(from, to).convert.value)
 }
 
-//implicit class ConversionExt(from: Currency) {
-//  def on(on: Date) = new CurrencyExt(from).to(to)
-//}
+implicit class ConversionExt(holder: ConversionHolder) {
+  def on(date: Date) = ConversionHolder(holder.from, holder.to, date, Conversion(holder.from, holder.to, date).convert.value)
+}
 
 
-jpy to rub
-usd to rub
+usd to rub on 20--11--2014
 eur to rub
 rub to eur
 eur to usd
