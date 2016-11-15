@@ -83,11 +83,15 @@ implicit class ConversionExt(holder: ConversionHolder) {
   def on(date: Date) = ConversionHolder(holder.from, holder.to, date, Conversion(holder.from, holder.to, date).convert.value)
 }
 
+implicit class IntExt(amount: Int) {
+  def `.`(conversionHolder: ConversionHolder) = amount * conversionHolder.value
+}
 
-usd to rub on 20--11--2014
-eur to rub
-rub to eur
-eur to usd
+
+5`.`(usd to rub on 20--11--2014)
+1`.`(eur to rub)
+1`.`(rub to eur)
+4`.`(eur to usd)
 
 
 
