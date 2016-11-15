@@ -40,7 +40,7 @@ object jpy extends Currency {
   override def getCode: String = "jpy"
 }
 
-case class CurrencyHolder(amount: Double, code: String)
+case class AmountHolder(amount: Double, code: String)
 
 case class Conversion(from: String, to: String, amount: Double, date: Date = Date.today) {
   def convert: Double = {
@@ -83,20 +83,34 @@ object Conversion {
   implicit def toDouble(conversion: Conversion): Double = conversion.convert
 }
 
+implicit class CurrencyExt(from: Currency) {
+  def to(target: Currency) = Conversion(from.getCode, target.getCode, 1.0)
+}
+
 implicit class ConversionExt(conversion: Conversion) {
   def on(date: Date) = new Conversion(conversion.from, conversion.to, conversion.amount, date)
 }
 
-implicit class CurrencyHolderExt(from: CurrencyHolder) {
+implicit class CurrencyHolderExt(from: AmountHolder) {
   def to(target: Currency) = new Conversion(from.code, target.getCode, from.amount)
 }
 
 implicit class DoubleExt(amount: Double) {
-  def usd = CurrencyHolder(amount, "usd")
-  def eur = CurrencyHolder(amount, "eur")
-  def rub = CurrencyHolder(amount, "rub")
+  def usd = AmountHolder(amount, "usd")
+  def eur = AmountHolder(amount, "eur")
+  def rub = AmountHolder(amount, "rub")
 }
 
 
 3.usd to rub on 30--11--2014
 1.rub to eur
+
+//example usage:
+val rate: Double = 5.eur to rub
+
+//if user pass wrong date or create unknown currency, then it will throw exception
+try {
+  print(usd to rub on 40--11--2014: Double)
+} catch {
+  case e: Exception => e.getMessage
+}
