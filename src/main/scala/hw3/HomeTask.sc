@@ -1,4 +1,5 @@
-import java.time.LocalDate.now
+import java.text.SimpleDateFormat
+import java.util.Calendar
 
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -7,17 +8,11 @@ import org.jsoup.select.Elements
 case class Date(day: Int, month: Int, year: Int)
 
 class DayMonth(day: Int, month: Int) {
-  def --(year: Int): Date = new Date(day, month, year)
+  def --(year: Int): Date = Date(day, month, year)
 }
 
 implicit class IntExt3(i2: Int) {
   def --(i: Int): DayMonth = new DayMonth(i2, i)
-}
-
-object Date {
-  def today : Date = {
-    new Date(now.getDayOfMonth, now.getMonthValue, now.getYear)
-  }
 }
 
 trait Currency {
@@ -40,57 +35,65 @@ object jpy extends Currency {
   override def getCode: String = "jpy"
 }
 
-case class CurrencyHolder(amount: Double, code: String)
+case class ConversionHolder(from: Currency, to: Currency, date : Date, value: BigDecimal)
 
-case class Conversion(from: String, to: String, var date: Date = Date.today, var amount: Double) {
-  def on(date: Date): Conversion = {
-    this.date = date
-    this
-  }
-
-  def convert: Conversion = {
-    if (to == "rub") {
-      this.amount = getRateAgainstRub(from)
-    } else if (from == "rub") {
-      this.amount = 1 / getRateAgainstRub(to)
+case class Conversion(from: Currency, to: Currency, date: Date = null) {
+  def convert : ConversionHolder = {
+    var result : BigDecimal = 0
+    if (to == rub) {
+      result = getRateAgainstRub(from)
+    } else if (from == rub) {
+      result = 1 / getRateAgainstRub(to)
     } else {
-      this.amount = getRateAgainstRub(from) / getRateAgainstRub(to)
+      result = getRateAgainstRub(from) / getRateAgainstRub(to)
     }
-    this
+    ConversionHolder(from, to, date, result)
   }
 
-  private def getRateAgainstRub(currency: String) : Double = {
-    val document: Document = Jsoup.connect(s"http://www.cbr.ru/eng/currency_base/daily.aspx?date_req=${date.day}.${date.month}.${date.year}").get()
+  private def getRateAgainstRub(currency: Currency) : BigDecimal = {
+    //<shitcode>
+    var desiredDate : String = ""
+    if (date == null) {
+      desiredDate = new SimpleDateFormat("dd.MM.yyyy").format(Calendar.getInstance().getTime)
+    } else {
+      desiredDate = s"${date.day}.${date.month}.${date.year}"
+    }
+    //</shitcode>
+    val document: Document = Jsoup.connect(s"http://www.cbr.ru/eng/currency_base/daily.aspx?date_req=$desiredDate").get()
     val table = document.select("table").get(0)
     val rows = table.select("tr")
-    var res : Double = 0
+    var res : BigDecimal = 0
 
     for (i <- 1 until rows.size()) {
       val row = rows.get(i)
       val tds : Elements = row.select("td")
       val unit : Int = tds.get(2).text.toInt
       val code : String = tds.get(1).text.toLowerCase()
-      if (code == currency) res = tds.get(4).text.toDouble / unit
+      if (code == currency.getCode) res = BigDecimal(tds.get(4).text) / unit
     }
     res
   }
 }
 
-implicit class ConversionExt(conversion: Conversion) {
-  def on(date: Date): Double = Conversion(conversion.from, conversion.to, date ,conversion.amount).convert.amount
+implicit class CurrencyExt(from: Currency) {
+  def to(to: Currency) = ConversionHolder(from, to, null, Conversion(from, to).convert.value)
 }
 
-implicit class CurrencyHolderExt(from: CurrencyHolder) {
-  def to(target: Currency) = Conversion(from.code, target.getCode, amount = from.amount).convert
-  implicit def toDouble(target: Currency): Double = Conversion(from.code, target.getCode, amount = from.amount).convert.amount
+implicit class ConversionExt(holder: ConversionHolder) {
+  def on(date: Date) = ConversionHolder(holder.from, holder.to, date, Conversion(holder.from, holder.to, date).convert.value)
 }
 
-implicit class DoubleExt(amount: Double) {
-  def usd = CurrencyHolder(amount, "usd")
-  def eur = CurrencyHolder(amount, "eur")
-  def rub = CurrencyHolder(amount, "rub")
+implicit class IntExt(amount: Int) {
+  def `.`(conversionHolder: ConversionHolder) = amount * conversionHolder.value
 }
 
-1.usd to rub on 20--11--2014
 
-1.rub to eur
+5`.`(usd to rub on 20--11--2014)
+1`.`(eur to rub)
+1`.`(rub to eur)
+4`.`(eur to usd)
+
+
+
+
+
