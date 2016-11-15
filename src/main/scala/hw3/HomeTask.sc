@@ -42,47 +42,53 @@ object jpy extends Currency {
 
 case class CurrencyHolder(amount: Double, code: String)
 
-case class Conversion(from: String, to: String, var date: Date = Date.today, var amount: Double) {
-  def on(date: Date): Conversion = {
-    this.date = date
-    this
-  }
-
-  def convert: Conversion = {
+case class Conversion(from: String, to: String, amount: Double, date: Date = Date.today) {
+  def convert: Double = {
+    var res : Double = 0
     if (to == "rub") {
-      this.amount = getRateAgainstRub(from)
+      res = amount * getRateAgainstRub(from)
     } else if (from == "rub") {
-      this.amount = 1 / getRateAgainstRub(to)
+      res = amount / getRateAgainstRub(to)
     } else {
-      this.amount = getRateAgainstRub(from) / getRateAgainstRub(to)
+      res = amount * getRateAgainstRub(from) / getRateAgainstRub(to)
     }
-    this
+    res
   }
 
   private def getRateAgainstRub(currency: String) : Double = {
     val document: Document = Jsoup.connect(s"http://www.cbr.ru/eng/currency_base/daily.aspx?date_req=${date.day}.${date.month}.${date.year}").get()
-    val table = document.select("table").get(0)
-    val rows = table.select("tr")
-    var res : Double = 0
+    try {
+      val table = document.select("table").get(0)
+      val rows = table.select("tr")
+      var res : Double = 0
 
-    for (i <- 1 until rows.size()) {
-      val row = rows.get(i)
-      val tds : Elements = row.select("td")
-      val unit : Int = tds.get(2).text.toInt
-      val code : String = tds.get(1).text.toLowerCase()
-      if (code == currency) res = tds.get(4).text.toDouble / unit
+      for (i <- 1 until rows.size()) {
+        val row = rows.get(i)
+        val tds : Elements = row.select("td")
+        val unit : Int = tds.get(2).text.toInt
+        val code : String = tds.get(1).text.toLowerCase()
+        if (code == currency) res = tds.get(4).text.toDouble / unit
+      }
+
+      if (res == 0) throw new IllegalArgumentException("Unknown currency code")
+
+      res
+    } catch {
+      case e: IndexOutOfBoundsException => throw new IllegalArgumentException("Wrong date")
     }
-    res
   }
 }
 
+object Conversion {
+  implicit def toDouble(conversion: Conversion): Double = conversion.convert
+}
+
 implicit class ConversionExt(conversion: Conversion) {
-  def on(date: Date): Double = Conversion(conversion.from, conversion.to, date ,conversion.amount).convert.amount
+  def on(date: Date) = new Conversion(conversion.from, conversion.to, conversion.amount, date)
 }
 
 implicit class CurrencyHolderExt(from: CurrencyHolder) {
-  def to(target: Currency) = Conversion(from.code, target.getCode, amount = from.amount).convert
-  implicit def toDouble(target: Currency): Double = Conversion(from.code, target.getCode, amount = from.amount).convert.amount
+  def to(target: Currency) = new Conversion(from.code, target.getCode, from.amount)
 }
 
 implicit class DoubleExt(amount: Double) {
@@ -91,6 +97,6 @@ implicit class DoubleExt(amount: Double) {
   def rub = CurrencyHolder(amount, "rub")
 }
 
-1.usd to rub on 20--11--2014
 
+3.usd to rub on 30--11--2014
 1.rub to eur
