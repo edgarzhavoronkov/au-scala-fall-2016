@@ -1,17 +1,17 @@
 // Peano numbers
 // data Nat = Zero | Succ Nat
 sealed trait Nat {
-  def Suc[N](n : N) : Succ[N] = Succ(n)
+  def Suc[N <: Nat](n : N) : Succ[N] = Succ(n)
 }
 
 object Nat {
-  type Suc[+N <: Nat] = Succ[N]
+  type Suc[N <: Nat] = Succ[N]
   type Zero = Zero.type
 }
 
 case object Zero extends Nat
 
-case class Succ[+N <: Nat](n: N) extends Nat {
+case class Succ[N <: Nat](n: N) extends Nat {
 
 }
 
@@ -85,14 +85,13 @@ case class HCons[+H, +T <: HList](head: H, tail: T) extends HList {
 }
 
 import HList._
-import Nat._
 
 val t: String :: Int :: HNil = "text" :: 1 :: HNil
 val r: String :: Boolean :: HNil = "text2" :: false :: HNil
 
 append(t, r).tail.head
 
-//splitAt(Succ[Zero], t)
+splitAt(Succ(Zero), t)
 
 val x = Succ(Zero)
 
